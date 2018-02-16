@@ -1,28 +1,23 @@
+#!/usr/bin/env python3
+
 import requests
 from lxml import etree
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
 
 
-def get_info_from_url(url):
-    return requests.get(url)
+def fetch_content_from_url(url):
+    return requests.get(url).content
 
 
-def get_xml_from_sitemap():
-    response = get_info_from_url(
-        'https://www.coursera.org/sitemap~www~courses.xml'
-    )
-    return response.content
-
-
-def get_courses_list(xml, amount):
+def get_courses_url_list(xml, amount):
     tree = etree.fromstring(xml)
     courses_list = [element[0].text for element in tree]
     return courses_list[:amount]
 
 
 def get_course_info(course_url):
-    plain_html = get_info_from_url(course_url).content
+    plain_html = fetch_content_from_url(course_url)
     soup = BeautifulSoup(plain_html, 'html.parser')
     course_name = soup.find_all('h2')[0].get_text()
     course_language = soup.find_all('div', 'rc-Language')[0].get_text()
@@ -58,12 +53,9 @@ def fill_courses_info_to_xlsx(courses_info):
             course['course_name'],
             course['course_language'],
             course['course_start_date'],
-            course['course_length']
+            course['course_length'],
+            course['course_ratings'] or 'No ratings yet'
         ]
-        if course['course_ratings'] == None:
-            course_row.append('No ratings yet')
-        else:
-            course_row.append(course['course_ratings'])
         ws1.append(course_row)
     return wb
 
@@ -74,10 +66,11 @@ def save_to_file(filled_workbook, filepath='./cources.xlsx'):
 
 def main():
     print('Collecting data....')
-    course_xml = get_xml_from_sitemap()
+    xml_url = 'https://www.coursera.org/sitemap~www~courses.xml'
     course_quantity = 10
-    courses_list = get_courses_list(course_xml, course_quantity)
-    courses_info = [get_course_info(course_url) for course_url in courses_list]
+    course_xml = fetch_content_from_url(xml_url)
+    courses_url_list = get_courses_url_list(course_xml, course_quantity)
+    courses_info = [get_course_info(course_url) for course_url in courses_url_list]
     filled_workbook = fill_courses_info_to_xlsx(courses_info)
     save_to_file(filled_workbook)
     print('Complete! Check courses.xlsx')
