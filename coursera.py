@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import requests
 from lxml import etree
 from bs4 import BeautifulSoup
@@ -16,8 +14,7 @@ def get_courses_url_list(xml, amount):
     return courses_list[:amount]
 
 
-def get_course_info(course_url):
-    plain_html = fetch_content_from_url(course_url)
+def get_course_info(plain_html):
     soup = BeautifulSoup(plain_html, 'html.parser')
     course_name = soup.find_all('h2')[0].get_text()
     course_language = soup.find_all('div', 'rc-Language')[0].get_text()
@@ -70,7 +67,9 @@ def main():
     course_quantity = 10
     course_xml = fetch_content_from_url(xml_url)
     courses_url_list = get_courses_url_list(course_xml, course_quantity)
-    courses_info = [get_course_info(course_url) for course_url in courses_url_list]
+    courses_info = [
+        get_course_info(fetch_content_from_url(course_url)) for course_url in courses_url_list
+    ]
     filled_workbook = fill_courses_info_to_xlsx(courses_info)
     save_to_file(filled_workbook)
     print('Complete! Check courses.xlsx')
