@@ -4,8 +4,14 @@ from bs4 import BeautifulSoup
 from openpyxl import Workbook
 
 
+def get_info_from_url(url):
+    return requests.get(url)
+
+
 def get_xml_from_sitemap():
-    response = requests.get('https://www.coursera.org/sitemap~www~courses.xml')
+    response = get_info_from_url(
+        'https://www.coursera.org/sitemap~www~courses.xml'
+    )
     return response.content
 
 
@@ -16,8 +22,8 @@ def get_courses_list(xml, amount):
 
 
 def get_course_info(course_url):
-    dirty_html = requests.get(course_url).content
-    soup = BeautifulSoup(dirty_html, 'html.parser')
+    plain_html = get_info_from_url(course_url).content
+    soup = BeautifulSoup(plain_html, 'html.parser')
     course_name = soup.find_all('h2')[0].get_text()
     course_language = soup.find_all('div', 'rc-Language')[0].get_text()
     course_start_date = soup.find_all('div', 'startdate')[0].get_text()
@@ -25,7 +31,7 @@ def get_course_info(course_url):
     try:
         course_ratings = soup.find_all('div', 'ratings-text')[0].get_text()
     except IndexError:
-        course_ratings = 'No ratings yet' # None
+        course_ratings = None
     course_info = {
         'course_name': course_name,
         'course_language': course_language,
@@ -36,7 +42,7 @@ def get_course_info(course_url):
     return course_info
 
 
-def fill_courses_info_to_xlsx(courses_info, filepath='./courses.xlsx'):
+def fill_courses_info_to_xlsx(courses_info):
     wb = Workbook()
     ws1 = wb.active
     table_title = [
@@ -52,20 +58,28 @@ def fill_courses_info_to_xlsx(courses_info, filepath='./courses.xlsx'):
             course['course_name'],
             course['course_language'],
             course['course_start_date'],
-            course['course_length'],
-            course['course_ratings']
+            course['course_length']
         ]
+        if course['course_ratings'] == None:
+            course_row.append('No ratings yet')
+        else:
+            course_row.append(course['course_ratings'])
         ws1.append(course_row)
-    wb.save(filepath)
+    return wb
+
+
+def save_to_file(filled_workbook, filepath='./cources.xlsx'):
+    filled_workbook.save(filepath)
 
 
 def main():
     print('Collecting data....')
     course_xml = get_xml_from_sitemap()
-    course_quantity = 5
+    course_quantity = 10
     courses_list = get_courses_list(course_xml, course_quantity)
     courses_info = [get_course_info(course_url) for course_url in courses_list]
-    fill_courses_info_to_xlsx(courses_info)
+    filled_workbook = fill_courses_info_to_xlsx(courses_info)
+    save_to_file(filled_workbook)
     print('Complete! Check courses.xlsx')
     
 
